@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校友期刊</title>
+    <script type="text/javascript" src="./js/jquery.min.1.7.js"></script>
+    <script type="text/javascript" src="./js/axios.min.js"></script>
+    <script type="text/javascript" src="./js/pdf.min.js" ></script>
+    <script type="text/javascript" src="./js/pdf.worker.min.js" ></script>
+    <script type="text/javascript" src="./js/modernizr.2.5.3.min.js" ></script>
+    <style>
+        html,body
+         {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            overflow: hidden !important;
+        }
+
+        body{
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .flipbook {
+            box-sizing: border-box;
+            margin: 0 auto !important;
+            box-shadow: 0 3px 15px #4d4c4c;
+        }
+
+        .flipbook .turn-page {
+            background-color: white;
+        }
+
+        .flipbook .cover {
+            background: #333;
+        }
+
+        .flipbook .cover h1 {
+            color: white;
+            text-align: center;
+            font-size: 50px;
+            line-height: 500px;
+            margin: 0px;
+        }
+
+       .flipbook .loader {
+            /* background-image: url(loader.gif); */
+            width: 24px;
+            height: 24px;
+            display: block;
+            position: absolute;
+            top: 238px;
+            left: 188px;
+        }
+
+        .flipbook .data {
+            text-align: center;
+            font-size: 40px;
+            color: #999;
+            line-height: 500px;
+        }
+
+        .flipbook .odd {
+            background-image: -webkit-linear-gradient(left, #FFF 95%, #ddd 100%);
+            background-image: -moz-linear-gradient(left, #FFF 95%, #ddd 100%);
+            background-image: -o-linear-gradient(left, #FFF 95%, #ddd 100%);
+            background-image: -ms-linear-gradient(left, #FFF 95%, #ddd 100%);
+            box-shadow: 0 3px 15px #4d4c4c;
+        }
+
+        .flipbook .even {
+            background-image: -webkit-linear-gradient(right, #FFF 95%, #ddd 100%);
+            background-image: -moz-linear-gradient(right, #FFF 95%, #ddd 100%);
+            background-image: -o-linear-gradient(right, #FFF 95%, #ddd 100%);
+            background-image: -ms-linear-gradient(right, #FFF 95%, #ddd 100%);
+            box-shadow: 0 3px 15px #4d4c4c;
+        }
+
+        .top{
+            position: fixed;
+            top: 23px;
+            left: 18px;
+        }
+
+        .top-title{
+            font-size: 16px;
+            font-weight: 500;
+            color: #333333;
+            line-height: 22px;
+        }
+
+        .top-pagenum{
+            margin-top: 4px;
+            font-size: 14px;
+            font-weight: 400;
+            color: #999999;
+            line-height: 20px;
+        }
+
+        .bottom{
+            position: fixed;
+            bottom: 40px;
+            right: 18px;
+        }
+        .bottom img{
+            width: 191px;
+            height: 25px;
+        }
+</style>
+</head>
+    <body>
+        <div class="top">
+            <div class="top-title"></div>
+            <div class="top-pagenum"></div>
+        </div>
+        <div class="box" style="margin: 0;padding: 0;text-align: center;background-color:#fff;overflow: hidden;box-shadow: 0 3px 15px #4d4c4c;">
+	        <div class="flipbook" style="background-color: #fff; overflow: hidden;"></div>
+         </div>
+         <div class="bottom">
+            <img src="./img/logo.png" alt="">
+         </div>
+    </body>
+    <script>
+        // 获取当前页面的完整 URL
+        var currentURL = window.location.href;
+        // 获取 URL 中的参数部分
+        var urlParams = new URLSearchParams(window.location.search);
+        // 获取名为 "title" 的参数值
+        var titleParam = urlParams.get('title');
+        var file = urlParams.get('file');
+        document.querySelector('.top-title').innerText = titleParam
+
+        document.body.style.overflow = 'hidden';
+        // 获取浏览器窗口的宽度
+        var windowWidth = window.innerWidth;
+        var boxWidth = windowWidth + 'px'
+        var boxHeight = (windowWidth * 1.414) + 'px'
+
+        document.querySelector('.box').style.width = boxWidth 
+        document.querySelector('.box').style.height = boxHeight 
+
+        //定义一些参数
+        var flipbook=$(".flipbook")
+        var pagestr = 1,bid= 1, scale = 1.48, rotate = 90;
+        window.onload=function(){
+            // 调用该函数传入远程 PDF 文件的 URL
+            loadPdfFromRemote(file);
+            //此处传递pdf路径
+            // getpdf("https://jy.szpu.edu.cn/123.pdf")
+            // getpdf("./3.2.pdf")
+        }
+
+       function loadPdfFromRemote(url) {
+            // 使用fetch API从远程获取pdf文件
+            fetch(url)
+                // 将响应体转换为blob
+                .then(response => response.blob())
+                .then(blob => {
+                    // 使用URL.createObjectURL创建一个本地url
+                    const localUrl = URL.createObjectURL(blob);
+                    // 调用getpdf函数，传入本地url
+                    getpdf(localUrl);
+                })
+                .catch(error => console.error('Error loading PDF:', error));
+        }
+
+
+        //获取pdf
+        function getpdf(url){
+            var loadingTask=pdfjsLib.getDocument(url)//获取pdf的文件信息
+            loadingTask.promise
+            .then(function(pdf){
+
+                document.querySelector('.top-pagenum').innerText = '页数：'+ pdf.numPages + '页'
+                //根据总页数添加固定的div和canvas
+                for (let i = 1; i <= pdf.numPages;i++) {
+                        var id = 'canvaspage' + i
+                        var div = document.createElement('div')
+                        div.innerHTML = '<canvas id="' + id + '" class="page"></canvas>'
+                        flipbook.append(div)
+                        setcanvas(i,pdf,id)
+                }
+                
+                //调用turn
+                yepnope({
+                        test : Modernizr.csstransforms,
+                        yep: ['./js/turn.min.js'],
+                        complete: loadApp
+                })
+            })
+        }
+    
+        function setcanvas(i,pdf,id){
+            pdf.getPage(i).then(function(page) {
+                    var viewport = page.getViewport({scale:scale})
+                    var canvas = document.getElementById(id)
+                    var context = canvas.getContext('2d')
+    
+    
+                    //根据宽高判断是否需要旋转
+                    if (viewport.height / viewport.width >= 1.42) {
+    
+                        var newScale = 1440 / viewport.height
+                        var newViewport = page.getViewport({scale:newScale,rotation:rotate})
+                        var outputScale = window.devicePixelRatio
+    
+                        canvas.width = Math.floor(newViewport.width * outputScale);
+                        canvas.height = Math.floor(newViewport.height * outputScale);
+                        canvas.style.width = Math.floor(newViewport.width) + "px";
+                        canvas.style.height = Math.floor(newViewport.height) + "px";
+    
+                        var transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] :
+                            null;
+    
+                        var renderContext = {
+                            canvasContext: context,
+                            transform: transform,
+                            viewport: newViewport
+                        }
+                        page.render(renderContext)
+    
+                        return ;
+                    }
+    
+                    //根据每张图的宽高，按标准重新计算缩放比例
+                    var newScale = 900 / viewport.height
+                    
+                    var newViewport = page.getViewport({scale:newScale})
+                    var outputScale = window.devicePixelRatio
+    
+                    canvas.width = Math.floor(newViewport.width * outputScale);
+                    canvas.height = Math.floor(newViewport.height * outputScale);
+                    canvas.style.width = Math.floor(newViewport.width) + "px";
+                    canvas.style.height = Math.floor(newViewport.height) + "px";
+    
+                    var transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] :
+                        null;
+    
+                    var renderContext = {
+                        canvasContext: context,
+                        transform: transform,
+                        viewport: newViewport
+                    }
+                page.render(renderContext)
+            })
+        }
+   
+        //turn.js
+        function loadApp() {
+            $(".flipbook").turn({
+                width: boxWidth,
+                height: boxHeight,
+                elevation: 50,
+                display: 'single',
+                autoCenter: true,
+                duration:1000,
+                gradients:true,
+                })
+
+            // 点击事件
+            // $(".flipbook").on('click', function(event) {
+            //     var clickX = event.clientX;
+            //     var windowWidth = window.innerWidth;
+
+            //     // 判断点击位置在窗口左半部分还是右半部分
+            //     if (clickX < windowWidth / 2) {
+            //         // 左侧点击，执行上一页操作
+            //         $(".flipbook").turn("previous");
+            //     } else {
+            //         // 右侧点击，执行下一页操作
+            //         $(".flipbook").turn("next");
+            //     }
+            // });
+
+            var touchStartX = 0;
+            var touchEndX = 0;
+
+            $('.flipbook').on('touchstart', function (e) {
+                touchStartX = e.originalEvent.touches[0].clientX;
+            });
+
+            $('.flipbook').on('touchmove', function (e) {
+                touchEndX = e.originalEvent.touches[0].clientX;
+            });
+
+            $('.flipbook').on('touchend', function () {
+                var deltaX = touchEndX - touchStartX;
+
+                if (deltaX > 50) {
+                    // 向右滑动，执行上一页操作
+                    $(".flipbook").turn("previous");
+                } else if (deltaX < -50) {
+                    // 向左滑动，执行下一页操作
+                    $(".flipbook").turn("next");
+                }
+            });
+        }
+        
+        // document.querySelector('body').style.backgroundColor = 'black'
+    
+   </script>
+</html>
